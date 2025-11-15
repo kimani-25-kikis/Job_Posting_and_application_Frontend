@@ -11,6 +11,9 @@ export interface Application {
   job_title?: string;
   employer_name?: string;
   employee_name?: string;
+  resume_filename?: string;
+  resume_url?: string;
+  file_size?: number;
 }
 
 interface ApplicationStats {
@@ -49,25 +52,36 @@ export const applicationsApi = createApi({
   }),
   tagTypes: ['Applications'],
   endpoints: (builder) => ({
-    applyForJob: builder.mutation<{ success: boolean; message: string; data: Application }, number>({
-      query: (jobId) => ({
+
+    // Apply for job (can later pass resumeData)
+    applyForJob: builder.mutation<
+      { success: boolean; message: string; data: Application },
+      { jobId: number; resumeData?: any }
+    >({
+      query: ({ jobId, resumeData }) => ({
         url: '/applications/apply',
         method: 'POST',
-        body: { jobId },
+        body: resumeData ? { jobId, resumeData } : { jobId },
       }),
       invalidatesTags: ['Applications'],
     }),
+
+    // Get logged-in employee's applications + stats
     getEmployeeApplications: builder.query<ApplicationsResponse, void>({
       query: () => '/employee/applications',
       providesTags: ['Applications'],
     }),
+
+    // Get employer applications
     getEmployerApplications: builder.query<ApplicationResponse, void>({
       query: () => '/employer/applications',
       providesTags: ['Applications'],
     }),
+
+    // Update application status (merged version)
     updateApplicationStatus: builder.mutation<
-      { success: boolean; message: string }, 
-      { applicationId: number; status: Application['status'] }
+      { success: boolean; message: string },
+      { applicationId: number; status: string }
     >({
       query: ({ applicationId, status }) => ({
         url: `/applications/${applicationId}/status`,
@@ -76,6 +90,19 @@ export const applicationsApi = createApi({
       }),
       invalidatesTags: ['Applications'],
     }),
+
+    // Upload resume (NEW)
+    uploadResume: builder.mutation<
+      { success: boolean; data: { filename: string; originalName: string; url: string; size: number } },
+      FormData
+    >({
+      query: (formData) => ({
+        url: '/upload/resume',
+        method: 'POST',
+        body: formData,
+      }),
+    }),
+
   }),
 });
 
@@ -84,4 +111,5 @@ export const {
   useGetEmployeeApplicationsQuery,
   useGetEmployerApplicationsQuery,
   useUpdateApplicationStatusMutation,
+  useUploadResumeMutation, // <-- NEW HOOK
 } = applicationsApi;
