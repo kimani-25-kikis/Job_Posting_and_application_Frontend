@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { useGetEmployerJobsQuery, useCreateJobMutation } from '../../store/api/jobsApi';
+import { 
+  useGetEmployerJobsQuery, 
+  useCreateJobMutation, 
+  useUpdateJobMutation,
+  useDeleteJobMutation 
+} from '../../store/api/jobsApi';
 import { useGetEmployerApplicationsQuery, useUpdateApplicationStatusMutation } from '../../store/api/applicationsApi';
 import { selectCurrentUser } from '../../store/slices/authSlice';
 import { type Job } from '../../store/api/jobsApi';
@@ -10,6 +15,8 @@ const EmployerDashboard: React.FC = () => {
   const user = useSelector(selectCurrentUser);
   const [activeTab, setActiveTab] = useState<'jobs' | 'applications'>('jobs');
   const [showJobForm, setShowJobForm] = useState(false);
+  const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
   const { 
     data: jobsData, 
@@ -25,6 +32,8 @@ const EmployerDashboard: React.FC = () => {
   } = useGetEmployerApplicationsQuery();
 
   const [createJob, { isLoading: creatingJob }] = useCreateJobMutation();
+  const [updateJob, { isLoading: updatingJob }] = useUpdateJobMutation();
+  const [deleteJob, { isLoading: deletingJob }] = useDeleteJobMutation();
   const [updateApplicationStatus, { isLoading: updatingStatus }] = useUpdateApplicationStatusMutation();
 
   const [jobForm, setJobForm] = useState({
@@ -70,6 +79,33 @@ const EmployerDashboard: React.FC = () => {
     }
   };
 
+  // Reset form when opening/closing modal
+  useEffect(() => {
+    if (!showJobForm) {
+      setEditingJob(null);
+      setJobForm({
+        title: '',
+        description: '',
+        requirements: '',
+        location: '',
+        salary: ''
+      });
+    }
+  }, [showJobForm]);
+
+  // Set form data when editing
+  useEffect(() => {
+    if (editingJob) {
+      setJobForm({
+        title: editingJob.title,
+        description: editingJob.description,
+        requirements: editingJob.requirements,
+        location: editingJob.location,
+        salary: editingJob.salary
+      });
+    }
+  }, [editingJob]);
+
   const handleCreateJob = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -79,6 +115,31 @@ const EmployerDashboard: React.FC = () => {
       refetchJobs();
     } catch (error) {
       console.error('Failed to create job:', error);
+    }
+  };
+
+  const handleUpdateJob = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingJob) return;
+    
+    try {
+      await updateJob({ jobId: editingJob.id, jobData: jobForm }).unwrap();
+      setShowJobForm(false);
+      setEditingJob(null);
+      setJobForm({ title: '', description: '', requirements: '', location: '', salary: '' });
+      refetchJobs();
+    } catch (error) {
+      console.error('Failed to update job:', error);
+    }
+  };
+
+  const handleDeleteJob = async (jobId: number) => {
+    try {
+      await deleteJob(jobId).unwrap();
+      setDeleteConfirm(null);
+      refetchJobs();
+    } catch (error) {
+      console.error('Failed to delete job:', error);
     }
   };
 
@@ -247,7 +308,7 @@ const EmployerDashboard: React.FC = () => {
 
                                     <a
                                       href={`http://localhost:3001/uploads/resumes/${application.resume_filename}`}
-                                      download={application.resume_filename} // <-- Forces download
+                                      download={application.resume_filename}
                                       className="px-3 py-1 bg-sky-100 text-sky-700 rounded text-sm hover:bg-sky-200 transition-colors"
                                     >
                                       Download
@@ -354,15 +415,67 @@ const EmployerDashboard: React.FC = () => {
                     {jobs.map((job: Job) => (
                       <div key={job.id} className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                         <div className="flex justify-between items-start">
-                          <div>
+                          <div className="flex-1">
                             <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
                             <p className="text-gray-600 mt-1">{job.location} • {job.salary}</p>
                             <p className="text-gray-500 text-sm mt-2">{job.description}</p>
+                            <div className="mt-3">
+                              <h4 className="text-sm font-medium text-gray-700">Requirements:</h4>
+                              <p className="text-gray-600 text-sm mt-1">{job.requirements}</p>
+                            </div>
                           </div>
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${job.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                            {job.is_active ? 'Active' : 'Inactive'}
-                          </span>
+                          
+                          <div className="ml-4 flex flex-col items-end space-y-2">
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              job.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {job.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                            
+                            {/* Edit and Delete Buttons */}
+                            <div className="flex space-x-2 mt-2">
+                              <button
+                                onClick={() => {
+                                  setEditingJob(job);
+                                  setShowJobForm(true);
+                                }}
+                                className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200 transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirm(job.id)}
+                                className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200 transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
                         </div>
+                        
+                        {/* Delete Confirmation Modal */}
+                        {deleteConfirm === job.id && (
+                          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <p className="text-red-800 text-sm font-medium mb-3">
+                              Are you sure you want to delete this job? This action cannot be undone.
+                            </p>
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => handleDeleteJob(job.id)}
+                                disabled={deletingJob}
+                                className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50"
+                              >
+                                {deletingJob ? 'Deleting...' : 'Yes, Delete'}
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirm(null)}
+                                className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -373,14 +486,19 @@ const EmployerDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Job Form Modal */}
+        {/* Job Creation/Edit Modal */}
         {showJobForm && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
             <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-lg bg-white">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-900">Post a New Job</h3>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  {editingJob ? 'Edit Job' : 'Post a New Job'}
+                </h3>
                 <button
-                  onClick={() => setShowJobForm(false)}
+                  onClick={() => {
+                    setShowJobForm(false);
+                    setEditingJob(null);
+                  }}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -389,37 +507,92 @@ const EmployerDashboard: React.FC = () => {
                 </button>
               </div>
               
-              <form onSubmit={handleCreateJob} className="space-y-4">
+              <form onSubmit={editingJob ? handleUpdateJob : handleCreateJob} className="space-y-4">
                 <div>
                   <label htmlFor="title" className="block text-sm font-medium text-gray-700">Job Title</label>
-                  <input type="text" id="title" name="title" required value={jobForm.title} onChange={handleJobFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-sky-500 focus:border-sky-500" />
+                  <input
+                    type="text"
+                    id="title"
+                    name="title"
+                    required
+                    value={jobForm.title}
+                    onChange={handleJobFormChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                  />
                 </div>
-
+                
                 <div>
                   <label htmlFor="description" className="block text-sm font-medium text-gray-700">Job Description</label>
-                  <textarea id="description" name="description" required rows={4} value={jobForm.description} onChange={handleJobFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-sky-500 focus:border-sky-500" />
+                  <textarea
+                    id="description"
+                    name="description"
+                    required
+                    rows={4}
+                    value={jobForm.description}
+                    onChange={handleJobFormChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                  />
                 </div>
-
+                
                 <div>
                   <label htmlFor="requirements" className="block text-sm font-medium text-gray-700">Requirements</label>
-                  <textarea id="requirements" name="requirements" required rows={3} value={jobForm.requirements} onChange={handleJobFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-sky-500 focus:border-sky-500" />
+                  <textarea
+                    id="requirements"
+                    name="requirements"
+                    required
+                    rows={3}
+                    value={jobForm.requirements}
+                    onChange={handleJobFormChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                  />
                 </div>
-
+                
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="location" className="block text-sm font-medium text-gray-700">Location</label>
-                    <input type="text" id="location" name="location" required value={jobForm.location} onChange={handleJobFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-sky-500 focus:border-sky-500" />
+                    <input
+                      type="text"
+                      id="location"
+                      name="location"
+                      required
+                      value={jobForm.location}
+                      onChange={handleJobFormChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                    />
                   </div>
-
+                  
                   <div>
                     <label htmlFor="salary" className="block text-sm font-medium text-gray-700">Salary</label>
-                    <input type="text" id="salary" name="salary" required value={jobForm.salary} onChange={handleJobFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-sky-500 focus:border-sky-500" />
+                    <input
+                      type="text"
+                      id="salary"
+                      name="salary"
+                      required
+                      value={jobForm.salary}
+                      onChange={handleJobFormChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                    />
                   </div>
                 </div>
-
+                
                 <div className="flex justify-end space-x-3 pt-4">
-                  <button type="button" onClick={() => setShowJobForm(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
-                  <button type="submit" disabled={creatingJob} className="px-4 py-2 text-sm font-medium text-white bg-sky-600 rounded-lg hover:bg-sky-700 disabled:opacity-50">{creatingJob ? 'Posting...' : 'Post Job'}</button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowJobForm(false);
+                      setEditingJob(null);
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingJob || updatingJob}
+                    className="px-4 py-2 text-sm font-medium text-white bg-sky-600 rounded-lg hover:bg-sky-700 disabled:opacity-50"
+                  >
+                    {creatingJob ? 'Posting...' : updatingJob ? 'Updating...' : editingJob ? 'Update Job' : 'Post Job'}
+                  </button>
                 </div>
               </form>
             </div>

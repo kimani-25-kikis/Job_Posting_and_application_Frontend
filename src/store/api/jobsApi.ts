@@ -22,6 +22,11 @@ interface CreateJobData {
   salary: string;
 }
 
+interface UpdateJobData {
+  jobId: number;
+  jobData: CreateJobData;
+}
+
 interface JobsResponse {
   success: boolean;
   data: Job[];
@@ -30,6 +35,11 @@ interface JobsResponse {
 interface JobResponse {
   success: boolean;
   data: Job;
+}
+
+interface DeleteJobResponse {
+  success: boolean;
+  message: string;
 }
 
 export const jobsApi = createApi({
@@ -61,6 +71,21 @@ export const jobsApi = createApi({
       }),
       invalidatesTags: ['Jobs'],
     }),
+    updateJob: builder.mutation<JobResponse, UpdateJobData>({
+      query: ({ jobId, jobData }) => ({
+        url: `/jobs/${jobId}`,
+        method: 'PUT',
+        body: jobData,
+      }),
+      invalidatesTags: ['Jobs'],
+    }),
+    deleteJob: builder.mutation<DeleteJobResponse, number>({
+      query: (jobId) => ({
+        url: `/jobs/${jobId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Jobs'],
+    }),
     getEmployerJobs: builder.query<JobsResponse, void>({
       query: () => '/employer/jobs',
       providesTags: ['Jobs'],
@@ -72,5 +97,7 @@ export const {
   useGetAllJobsQuery, 
   useGetJobQuery, 
   useCreateJobMutation, 
+  useUpdateJobMutation,
+  useDeleteJobMutation,
   useGetEmployerJobsQuery 
 } = jobsApi;
