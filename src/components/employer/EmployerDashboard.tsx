@@ -5,7 +5,7 @@ import {
   useCreateJobMutation, 
   useUpdateJobMutation,
   useDeleteJobMutation,
-  useToggleJobStatusMutation // Add this
+  useToggleJobStatusMutation 
 } from '../../store/api/jobsApi';
 import { useGetEmployerApplicationsQuery, useUpdateApplicationStatusMutation } from '../../store/api/applicationsApi';
 import { selectCurrentUser } from '../../store/slices/authSlice';
