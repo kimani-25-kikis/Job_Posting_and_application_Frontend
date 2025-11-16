@@ -4,7 +4,8 @@ import {
   useGetEmployerJobsQuery, 
   useCreateJobMutation, 
   useUpdateJobMutation,
-  useDeleteJobMutation 
+  useDeleteJobMutation,
+  useToggleJobStatusMutation // Add this
 } from '../../store/api/jobsApi';
 import { useGetEmployerApplicationsQuery, useUpdateApplicationStatusMutation } from '../../store/api/applicationsApi';
 import { selectCurrentUser } from '../../store/slices/authSlice';
@@ -33,6 +34,7 @@ const EmployerDashboard: React.FC = () => {
 
   const [createJob, { isLoading: creatingJob }] = useCreateJobMutation();
   const [updateJob, { isLoading: updatingJob }] = useUpdateJobMutation();
+  const [toggleJobStatus, { isLoading: togglingStatus }] = useToggleJobStatusMutation(); // Add this
   const [deleteJob, { isLoading: deletingJob }] = useDeleteJobMutation();
   const [updateApplicationStatus, { isLoading: updatingStatus }] = useUpdateApplicationStatusMutation();
 
@@ -76,6 +78,36 @@ const EmployerDashboard: React.FC = () => {
     } catch (error) {
       console.error('Failed to update application status:', error);
       alert('Failed to update status. Please try again.');
+    }
+  };
+
+  // Add toggle status handler
+  const handleToggleStatus = async (jobId: number) => {
+    try {
+      await toggleJobStatus(jobId).unwrap();
+      refetchJobs();
+    } catch (error) {
+      console.error('Failed to toggle job status:', error);
+      alert('Failed to update job status. Please try again.');
+    }
+  };
+
+  // Update delete handler to show error messages
+  const handleDeleteJob = async (jobId: number) => {
+    try {
+      const result = await deleteJob(jobId).unwrap();
+      if (result.success) {
+        setDeleteConfirm(null);
+        refetchJobs();
+      }
+    } catch (error: any) {
+      console.error('Failed to delete job:', error);
+      // Show the backend error message to user
+      if (error.data?.error) {
+        alert(error.data.error);
+      } else {
+        alert('Failed to delete job. Please try again.');
+      }
     }
   };
 
@@ -133,16 +165,6 @@ const EmployerDashboard: React.FC = () => {
     }
   };
 
-  const handleDeleteJob = async (jobId: number) => {
-    try {
-      await deleteJob(jobId).unwrap();
-      setDeleteConfirm(null);
-      refetchJobs();
-    } catch (error) {
-      console.error('Failed to delete job:', error);
-    }
-  };
-
   const handleJobFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setJobForm({
       ...jobForm,
@@ -185,7 +207,7 @@ const EmployerDashboard: React.FC = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Active Jobs</p>
-                <p className="text-2xl font-semibold text-gray-900">{jobs.length}</p>
+                <p className="text-2xl font-semibold text-gray-900">{jobs.filter(job => job.is_active).length}</p>
               </div>
             </div>
           </div>
@@ -413,7 +435,9 @@ const EmployerDashboard: React.FC = () => {
                 ) : (
                   <div className="space-y-4">
                     {jobs.map((job: Job) => (
-                      <div key={job.id} className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                      <div key={job.id} className={`rounded-lg p-6 border ${
+                        job.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-300 opacity-75'
+                      }`}>
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
@@ -432,8 +456,9 @@ const EmployerDashboard: React.FC = () => {
                               {job.is_active ? 'Active' : 'Inactive'}
                             </span>
                             
-                            {/* Edit and Delete Buttons */}
+                            {/* Action Buttons */}
                             <div className="flex space-x-2 mt-2">
+                              {/* Edit Button */}
                               <button
                                 onClick={() => {
                                   setEditingJob(job);
@@ -443,6 +468,21 @@ const EmployerDashboard: React.FC = () => {
                               >
                                 Edit
                               </button>
+                              
+                              {/* Toggle Status Button */}
+                              <button
+                                onClick={() => handleToggleStatus(job.id)}
+                                disabled={togglingStatus}
+                                className={`px-3 py-1 rounded text-sm transition-colors disabled:opacity-50 ${
+                                  job.is_active 
+                                    ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' 
+                                    : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                }`}
+                              >
+                                {togglingStatus ? '...' : job.is_active ? 'Deactivate' : 'Activate'}
+                              </button>
+                              
+                              {/* Delete Button */}
                               <button
                                 onClick={() => setDeleteConfirm(job.id)}
                                 className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200 transition-colors"
@@ -457,7 +497,7 @@ const EmployerDashboard: React.FC = () => {
                         {deleteConfirm === job.id && (
                           <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                             <p className="text-red-800 text-sm font-medium mb-3">
-                              Are you sure you want to delete this job? This action cannot be undone.
+                              Are you sure you want to permanently delete this job? This action cannot be undone and will remove all job data.
                             </p>
                             <div className="flex space-x-2">
                               <button
@@ -465,7 +505,7 @@ const EmployerDashboard: React.FC = () => {
                                 disabled={deletingJob}
                                 className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50"
                               >
-                                {deletingJob ? 'Deleting...' : 'Yes, Delete'}
+                                {deletingJob ? 'Deleting...' : 'Yes, Delete Permanently'}
                               </button>
                               <button
                                 onClick={() => setDeleteConfirm(null)}

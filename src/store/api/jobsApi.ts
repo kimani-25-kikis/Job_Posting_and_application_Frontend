@@ -79,6 +79,13 @@ export const jobsApi = createApi({
       }),
       invalidatesTags: ['Jobs'],
     }),
+    toggleJobStatus: builder.mutation<JobResponse, number>({
+      query: (jobId) => ({
+        url: `/jobs/${jobId}/status`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['Jobs'],
+    }),
     deleteJob: builder.mutation<DeleteJobResponse, number>({
       query: (jobId) => ({
         url: `/jobs/${jobId}`,
@@ -98,6 +105,7 @@ export const {
   useGetJobQuery, 
   useCreateJobMutation, 
   useUpdateJobMutation,
+  useToggleJobStatusMutation, // Add this
   useDeleteJobMutation,
   useGetEmployerJobsQuery 
 } = jobsApi;
