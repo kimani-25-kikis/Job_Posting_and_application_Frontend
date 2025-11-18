@@ -7,4 +7,5 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     react()],
+    //base: '/Job_Posting_and_application_Frontend/',
 })
