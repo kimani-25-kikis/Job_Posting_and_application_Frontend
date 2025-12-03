@@ -56,37 +56,50 @@ const Register: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage('');
-    
-    if (!validateForm()) return;
+ // In your handleSubmit function in Register.tsx
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setErrorMessage('');
+  
+  if (!validateForm()) return;
 
-    try {
-      const { confirmPassword, ...registerData } = formData;
-      const result = await register(registerData).unwrap();
+  try {
+    const { confirmPassword, ...registerData } = formData;
+    const result = await register(registerData).unwrap();
+    
+    if (result.success) {
+      dispatch(setCredentials({
+        user: result.data.user,
+        token: result.data.token
+      }));
       
-      if (result.success) {
-        dispatch(setCredentials({
-          user: result.data.user,
-          token: result.data.token
-        }));
-      }
-    } catch (err) {
-      console.error('Registration failed:', err);
+      // ✅ ADD THIS: Update success message to mention email
+      setErrorMessage('🎉 Registration successful! Check your email for a welcome message.');
       
-      // Handle different error types
-      if (isSerializedError(err) && err.data) {
-        setErrorMessage(err.data.error);
-      } else if (isApiError(err)) {
-        setErrorMessage(err.error);
-      } else if (err instanceof Error) {
-        setErrorMessage(err.message);
-      } else {
-        setErrorMessage('Registration failed. Please try again.');
-      }
+      // Optional: Clear form after success
+      setFormData({
+        email: '',
+        password: '',
+        confirmPassword: '',
+        name: '',
+        user_type: 'employee'
+      });
     }
-  };
+  } catch (err) {
+    console.error('Registration failed:', err);
+    
+    // Handle different error types
+    if (isSerializedError(err) && err.data) {
+      setErrorMessage(err.data.error);
+    } else if (isApiError(err)) {
+      setErrorMessage(err.error);
+    } else if (err instanceof Error) {
+      setErrorMessage(err.message);
+    } else {
+      setErrorMessage('Registration failed. Please try again.');
+    }
+  }
+};
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
