@@ -1,6 +1,7 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { type RootState } from '../store';
 
+// In your applicationsApi.ts or similar
 export interface Application {
   id: number;
   job_id: number;
@@ -14,6 +15,10 @@ export interface Application {
   resume_filename?: string;
   resume_url?: string;
   file_size?: number;
+  // ADD THESE:
+  cover_letter?: string;
+  phone_number?: string;
+  location?: string;
 }
 
 interface ApplicationStats {
@@ -54,17 +59,27 @@ export const applicationsApi = createApi({
   endpoints: (builder) => ({
 
     // Apply for job (can later pass resumeData)
-    applyForJob: builder.mutation<
-      { success: boolean; message: string; data: Application },
-      { jobId: number; resumeData?: any }
-    >({
-      query: ({ jobId, resumeData }) => ({
-        url: '/applications/apply',
-        method: 'POST',
-        body: resumeData ? { jobId, resumeData } : { jobId },
-      }),
-      invalidatesTags: ['Applications'],
-    }),
+   // In applicationsApi.ts, update the applyForJob mutation:
+applyForJob: builder.mutation<
+  { success: boolean; message: string; data: Application },
+  { 
+    jobId: number; 
+    resumeData?: any;
+    applicationData?: {  // ADD THIS
+      cover_letter: string;
+      phone_number: string;
+      location: string;
+      
+    }
+  }
+>({
+  query: ({ jobId, resumeData, applicationData }) => ({ // ADD applicationData
+    url: '/applications/apply',
+    method: 'POST',
+    body: { jobId, resumeData, applicationData }, // Include all
+  }),
+  invalidatesTags: ['Applications'],
+}),
 
     // Get logged-in employee's applications + stats
     getEmployeeApplications: builder.query<ApplicationsResponse, void>({

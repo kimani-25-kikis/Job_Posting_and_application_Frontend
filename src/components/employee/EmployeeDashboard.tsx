@@ -11,6 +11,13 @@ import { type RootState } from '../../store/store';
 import { type Job } from '../../store/api/jobsApi';
 import {type  Application } from '../../store/api/applicationsApi';
 
+interface ApplicationFormData {
+  cover_letter: string;
+  phone_number: string;
+  location: string;
+  
+}
+
 const EmployeeDashboard: React.FC = () => {
   const user = useSelector(selectCurrentUser);
   const [activeTab, setActiveTab] = useState<'jobs' | 'applications'>('jobs');
@@ -22,6 +29,12 @@ const EmployeeDashboard: React.FC = () => {
   const { data: applicationsData, isLoading: applicationsLoading, refetch: refetchApplications } = useGetEmployeeApplicationsQuery();
   const [applyForJob, { isLoading: applying }] = useApplyForJobMutation();
   const [uploadResume, { isLoading: uploading }] = useUploadResumeMutation();
+  const [applicationData, setApplicationData] = useState<ApplicationFormData>({
+    cover_letter: '',
+    phone_number: '',
+    location: '',
+    
+  });
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,41 +59,94 @@ const EmployeeDashboard: React.FC = () => {
     setShowApplyModal(true);
   };
 
-  const submitApplication = async () => {
-    if (!selectedJob) return;
+const submitApplication = async () => {
+  if (!selectedJob) return;
 
-    try {
-      let resumeData = null;
+  // Validate required fields
+  const errors = [];
+  
+  if (!applicationData.cover_letter?.trim()) {
+    errors.push('Cover letter is required');
+  }
+  
+  if (!applicationData.phone_number?.trim()) {
+    errors.push('Phone number is required');
+  }
+  
+  if (!applicationData.location?.trim()) {
+    errors.push('Location is required');
+  }
+  
+  
+  if (errors.length > 0) {
+    alert(`❌ Please fix the following:\n\n${errors.join('\n')}`);
+    return;
+  }
 
-      if (resumeFile) {
-        const formData = new FormData();
-        formData.append('resume', resumeFile);
-        const uploadResult = await uploadResume(formData).unwrap();
-        if (uploadResult.success) {
-          resumeData = {
-            filename: uploadResult.data.filename,
-            originalName: uploadResult.data.originalName,
-            size: uploadResult.data.size
-          };
-        }
+  console.log('📤 Submitting application with data:', {
+    jobId: selectedJob.id,
+    applicationData,
+    hasResume: !!resumeFile
+  });
+
+  try {
+    let resumeData = null;
+
+    if (resumeFile) {
+      const formData = new FormData();
+      formData.append('resume', resumeFile);
+      const uploadResult = await uploadResume(formData).unwrap();
+      if (uploadResult.success) {
+        resumeData = {
+          filename: uploadResult.data.filename,
+          originalName: uploadResult.data.originalName,
+          size: uploadResult.data.size
+        };
       }
-
-      const result = await applyForJob({
-        jobId: selectedJob.id,
-        resumeData
-      }).unwrap();
-
-      if (result.success) {
-        setShowApplyModal(false);
-        setSelectedJob(null);
-        setResumeFile(null);
-        refetchApplications();
-        refetchJobs();
-      }
-    } catch (error) {
-      console.error('Failed to apply for job:', error);
     }
-  };
+
+    // 🚨 FIXED: Include applicationData in the API call
+    const result = await applyForJob({
+      jobId: selectedJob.id,
+      resumeData,
+      applicationData: {
+        cover_letter: applicationData.cover_letter,
+        phone_number: applicationData.phone_number,
+        location: applicationData.location,
+        
+      }
+    }).unwrap();
+
+    if (result.success) {
+      console.log('✅ Application submitted successfully:', result.data);
+      
+      // Clear form and close modal
+      setShowApplyModal(false);
+      setSelectedJob(null);
+      setResumeFile(null);
+      setApplicationData({
+        cover_letter: '',
+        phone_number: '',
+        location: ''    
+      });
+      
+      // Refresh data
+      refetchApplications();
+      refetchJobs();
+      
+      // Show success message
+      alert(`🎉 Application submitted successfully!\n\nYou applied for: ${selectedJob.title}\nAt: ${selectedJob.employer_name}`);
+    }
+  } catch (error: any) {
+    console.error('❌ Failed to apply for job:', error);
+    
+    // Show user-friendly error message
+    const errorMessage = error?.data?.error || 
+                        error?.message || 
+                        'Failed to submit application. Please try again.';
+    alert(`❌ Error: ${errorMessage}`);
+  }
+};
 
   const jobs = jobsData?.data || [];
   const applications = applicationsData?.data?.applications || [];
@@ -371,95 +437,211 @@ const EmployeeDashboard: React.FC = () => {
 
         {/* Enhanced Apply Modal */}
                 {/* Enhanced Apply Modal with Blur Background */}
-        {showApplyModal && selectedJob && (
-          <div className="fixed inset-0 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-            {/* Blur Background Overlay */}
-            <div className="fixed inset-0 bg-gradient-to-br from-sky-400/20 via-blue-500/20 to-purple-600/20 backdrop-blur-md"></div>
-            
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md border border-sky-200 transform transition-all duration-300 scale-100">
-              <div className="bg-gradient-to-r from-sky-500 to-blue-600 rounded-t-2xl p-6">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-bold text-white flex items-center">
-                    🚀 Apply for {selectedJob.title}
-                  </h3>
-                  <button
-                    onClick={() => {
-                      setShowApplyModal(false);
-                      setSelectedJob(null);
-                      setResumeFile(null);
-                    }}
-                    className="text-white hover:text-sky-100 transition-colors duration-200 p-2 rounded-full hover:bg-white/20"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              
-              <div className="p-6 space-y-6">
-                <div className="bg-gradient-to-r from-sky-50 to-blue-50 rounded-xl p-4 border border-sky-200">
-                  <h4 className="font-semibold text-gray-700 mb-2">📋 Job Details</h4>
-                  <p className="text-sm text-gray-600"><strong>Company:</strong> {selectedJob.employer_name}</p>
-                  <p className="text-sm text-gray-600"><strong>Location:</strong> {selectedJob.location}</p>
-                  <p className="text-sm text-gray-600"><strong>Salary:</strong> {selectedJob.salary}</p>
-                </div>
+  {showApplyModal && selectedJob && (
+  <div className="fixed inset-0 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+    {/* Blur Background Overlay */}
+    <div className="fixed inset-0 bg-gradient-to-br from-sky-400/20 via-blue-500/20 to-purple-600/20 backdrop-blur-md"></div>
+    
+    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-sky-200 transform transition-all duration-300 scale-100">
+      <div className="bg-gradient-to-r from-sky-500 to-blue-600 rounded-t-2xl p-6">
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-bold text-white flex items-center">
+            🚀 Apply for {selectedJob.title}
+          </h3>
+          <button
+            onClick={() => {
+              setShowApplyModal(false);
+              setSelectedJob(null);
+              setResumeFile(null);
+              setApplicationData({
+                cover_letter: '',
+                phone_number: '',
+                location: '',
                 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                    📄 Upload Resume (Optional)
-                  </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-sky-400 transition-colors duration-200">
-                    <input
-                      type="file"
-                      accept=".pdf,.doc,.docx"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                      id="resume-upload"
-                    />
-                    <label htmlFor="resume-upload" className="cursor-pointer">
-                      <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      <p className="text-sm text-gray-600 mb-1">
-                        {resumeFile ? resumeFile.name : 'Click to upload resume'}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        PDF or Word documents only • Max 5MB
-                      </p>
-                    </label>
-                  </div>
-                  {resumeFile && (
-                    <p className="text-sm text-emerald-600 mt-2 flex items-center">
-                      ✅ Selected: {resumeFile.name}
-                    </p>
-                  )}
-                </div>
-                
-                <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowApplyModal(false);
-                      setSelectedJob(null);
-                      setResumeFile(null);
-                    }}
-                    className="px-6 py-3 text-sm font-semibold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all duration-200 shadow-md hover:shadow-lg"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={submitApplication}
-                    disabled={applying || uploading}
-                    className="px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-sky-500 to-blue-600 rounded-xl hover:from-sky-600 hover:to-blue-700 disabled:opacity-50 transition-all duration-200 shadow-md hover:shadow-lg flex items-center"
-                  >
-                    {(applying || uploading) ? '⏳ Submitting...' : '🚀 Submit Application'}
-                  </button>
-                </div>
-              </div>
+              });
+            }}
+            className="text-white hover:text-sky-100 transition-colors duration-200 p-2 rounded-full hover:bg-white/20"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      
+      <div className="p-6 space-y-6">
+        {/* Job Details Summary */}
+        <div className="bg-gradient-to-r from-sky-50 to-blue-50 rounded-xl p-4 border border-sky-200">
+          <h4 className="font-semibold text-gray-700 mb-2">📋 Job Details</h4>
+          <div className="grid grid-cols-2 gap-2">
+            <p className="text-sm text-gray-600"><strong>Company:</strong> {selectedJob.employer_name}</p>
+            <p className="text-sm text-gray-600"><strong>Location:</strong> {selectedJob.location}</p>
+            <p className="text-sm text-gray-600"><strong>Salary:</strong> {selectedJob.salary}</p>
+            <p className="text-sm text-gray-600"><strong>Type:</strong> {selectedJob.job_type || 'Full-time'}</p>
+          </div>
+        </div>
+
+        {/* Personal Information Section */}
+        <div className="space-y-4">
+          <h4 className="text-lg font-semibold text-gray-700 flex items-center">
+            👤 Personal Information
+          </h4>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Full Name */}
+            {/* <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Full Name *
+              </label>
+              <input
+                type="text"
+                value={applicationData.full_name}
+                onChange={(e) => setApplicationData({...applicationData, full_name: e.target.value})}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all duration-200"
+                placeholder="Karen Kilonzo"
+                required
+              />
+            </div> */}
+
+            {/* Email */}
+            {/* <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email Address *
+              </label>
+              <input
+                type="email"
+                value={applicationData.email}
+                onChange={(e) => setApplicationData({...applicationData, email: e.target.value})}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all duration-200"
+                placeholder="employee@gmail.com"
+                required
+              />
+            </div> */}
+
+            {/* Phone Number */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Phone Number *
+              </label>
+              <input
+                type="tel"
+                value={applicationData.phone_number}
+                onChange={(e) => setApplicationData({...applicationData, phone_number: e.target.value})}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all duration-200"
+                placeholder="+254700000000"
+                required
+              />
+            </div>
+
+            {/* Location */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Location *
+              </label>
+              <input
+                type="text"
+                value={applicationData.location}
+                onChange={(e) => setApplicationData({...applicationData, location: e.target.value})}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all duration-200"
+                placeholder="City, Country"
+                required
+              />
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Cover Letter Section */}
+        <div className="space-y-4">
+          <h4 className="text-lg font-semibold text-gray-700 flex items-center">
+            📝 Cover Letter
+          </h4>
+          <p className="text-sm text-gray-600">
+            Tell the employer why you're the perfect fit for this role. Highlight your relevant experience and skills.
+          </p>
+          <textarea
+            value={applicationData.cover_letter}
+            onChange={(e) => setApplicationData({...applicationData, cover_letter: e.target.value})}
+            rows={6}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all duration-200 resize-vertical"
+            placeholder="Dear Hiring Manager,
+
+I am writing to express my interest in the [Job Title] position at [Company Name]. With my background in [relevant field/experience], I am confident that I would be a valuable asset to your team.
+
+[Add specific examples of your achievements and skills]
+
+Thank you for considering my application. I look forward to the opportunity to discuss how I can contribute to your organization.
+
+Sincerely,
+[Your Name]"
+          />
+          <p className="text-xs text-gray-500">
+            Recommended length: 250-500 words. This is your chance to make a great first impression!
+          </p>
+        </div>
+
+        {/* Resume Upload Section */}
+        <div className="space-y-4">
+          <h4 className="text-lg font-semibold text-gray-700 flex items-center">
+            📄 Resume Upload (Optional)
+          </h4>
+          <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-sky-400 transition-colors duration-200">
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx"
+              onChange={handleFileSelect}
+              className="hidden"
+              id="resume-upload"
+            />
+            <label htmlFor="resume-upload" className="cursor-pointer block">
+              <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <p className="text-sm text-gray-600 mb-1">
+                {resumeFile ? resumeFile.name : 'Click to upload resume (Optional)'}
+              </p>
+              <p className="text-xs text-gray-500">
+                PDF or Word documents only • Max 5MB
+              </p>
+            </label>
+          </div>
+          {resumeFile && (
+            <p className="text-sm text-emerald-600 mt-2 flex items-center">
+              ✅ Selected: {resumeFile.name} ({(resumeFile.size / 1024 / 1024).toFixed(2)} MB)
+            </p>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-between space-x-4 pt-6 border-t border-gray-200">
+          <button
+            type="button"
+            onClick={() => {
+              setShowApplyModal(false);
+              setSelectedJob(null);
+              setResumeFile(null);
+              setApplicationData({
+                cover_letter: '',
+                phone_number: '',
+                location: '',
+                
+              });
+            }}
+            className="px-6 py-3 text-sm font-semibold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all duration-200 shadow-md hover:shadow-lg"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={submitApplication}
+            disabled={applying || uploading || !applicationData.cover_letter}
+            className="px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-sky-500 to-blue-600 rounded-xl hover:from-sky-600 hover:to-blue-700 disabled:opacity-50 transition-all duration-200 shadow-md hover:shadow-lg flex items-center"
+          >
+            {(applying || uploading) ? '⏳ Submitting...' : '🚀 Submit Application'}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
       </div>
     </div>
   );

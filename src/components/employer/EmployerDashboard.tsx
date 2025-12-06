@@ -11,6 +11,8 @@ import { useGetEmployerApplicationsQuery, useUpdateApplicationStatusMutation } f
 import { selectCurrentUser } from '../../store/slices/authSlice';
 import { type Job } from '../../store/api/jobsApi';
 import { type Application } from '../../store/api/applicationsApi';
+// Update your Application interface (if you have one locally)
+
 
 const EmployerDashboard: React.FC = () => {
   const user = useSelector(selectCurrentUser);
@@ -31,6 +33,7 @@ const EmployerDashboard: React.FC = () => {
     isLoading: applicationsLoading, 
     refetch: refetchApplications 
   } = useGetEmployerApplicationsQuery();
+  
 
   const [createJob, { isLoading: creatingJob }] = useCreateJobMutation();
   const [updateJob, { isLoading: updatingJob }] = useUpdateJobMutation();
@@ -43,7 +46,8 @@ const EmployerDashboard: React.FC = () => {
     description: '',
     requirements: '',
     location: '',
-    salary: ''
+    salary: '',
+    job_type: ''
   });
 
   // ===== Enhanced Helper Functions =====
@@ -116,7 +120,8 @@ const EmployerDashboard: React.FC = () => {
         description: '',
         requirements: '',
         location: '',
-        salary: ''
+        salary: '',
+        job_type: ''
       });
     }
   }, [showJobForm]);
@@ -128,7 +133,8 @@ const EmployerDashboard: React.FC = () => {
         description: editingJob.description,
         requirements: editingJob.requirements,
         location: editingJob.location,
-        salary: editingJob.salary
+        salary: editingJob.salary,
+        job_type: editingJob.job_type
       });
     }
   }, [editingJob]);
@@ -138,7 +144,7 @@ const EmployerDashboard: React.FC = () => {
     try {
       await createJob(jobForm).unwrap();
       setShowJobForm(false);
-      setJobForm({ title: '', description: '', requirements: '', location: '', salary: '' });
+      setJobForm({ title: '', description: '', requirements: '', location: '', salary: '',job_type:'' });
       refetchJobs();
     } catch (error) {
       console.error('Failed to create job:', error);
@@ -153,7 +159,7 @@ const EmployerDashboard: React.FC = () => {
       await updateJob({ jobId: editingJob.id, jobData: jobForm }).unwrap();
       setShowJobForm(false);
       setEditingJob(null);
-      setJobForm({ title: '', description: '', requirements: '', location: '', salary: '' });
+      setJobForm({ title: '', description: '', requirements: '', location: '', salary: '',job_type:''  });
       refetchJobs();
     } catch (error) {
       console.error('Failed to update job:', error);
@@ -315,107 +321,147 @@ const EmployerDashboard: React.FC = () => {
                       const nextStatusOptions = getNextStatusOptions(application.status);
 
                       return (
-                        <div key={application.id} className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200 hover:shadow-xl transition-shadow duration-200">
-                          
-                          <div className="flex justify-between items-start mb-4">
-                            <div className="flex-1">
-                              <h3 className="text-xl font-bold text-gray-900 mb-2">{application.job_title}</h3>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                                <div className="flex items-center text-gray-700">
-                                  <span className="font-semibold mr-2">👤 Applicant:</span>
-                                  {application.employee_name}
-                                </div>
-                                <div className="flex items-center text-gray-700">
-                                  <span className="font-semibold mr-2">📅 Applied:</span>
-                                  {new Date(application.applied_at).toLocaleDateString()} at {new Date(application.applied_at).toLocaleTimeString()}
-                                </div>
-                              </div>
+                        // In the applications.map section, update the application card:
 
-                              {/* Enhanced Resume Display */}
-                              {application.resume_filename && (
-                                <div className="mt-4 p-4 bg-gradient-to-r from-sky-50 to-blue-50 rounded-xl border border-sky-200">
-                                  <p className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                                    📄 Resume Attached
-                                  </p>
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <span className="text-sm text-gray-600 block">
-                                        {application.resume_filename}
-                                      </span>
-                                      {application.file_size && (
-                                        <span className="text-xs text-gray-500">
-                                          ({(application.file_size / 1024 / 1024).toFixed(2)} MB)
-                                        </span>
-                                      )}
-                                    </div>
-                                    <a
-                                      href={`http://localhost:3001/uploads/resumes/${application.resume_filename}`}
-                                      download={application.resume_filename}
-                                      className="px-4 py-2 bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-lg text-sm font-semibold hover:from-sky-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
-                                    >
-                                      Download
-                                    </a>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
+<div key={application.id} className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200 hover:shadow-xl transition-shadow duration-200">
+  
+  {/* Application Header */}
+  <div className="flex justify-between items-start mb-4">
+    <div className="flex-1">
+      <h3 className="text-xl font-bold text-gray-900 mb-2">{application.job_title}</h3>
+      
+      {/* Applicant Basic Info */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+        <div className="flex items-center text-gray-700">
+          <span className="font-semibold mr-2">👤 Applicant:</span>
+          {application.employee_name}
+        </div>
+        <div className="flex items-center text-gray-700">
+          <span className="font-semibold mr-2">📞 Phone:</span>
+          {application.phone_number || 'Not provided'}
+        </div>
+        <div className="flex items-center text-gray-700">
+          <span className="font-semibold mr-2">📍 Location:</span>
+          {application.location || 'Not provided'}
+        </div>
+        <div className="flex items-center text-gray-700">
+          <span className="font-semibold mr-2">📅 Applied:</span>
+          {new Date(application.applied_at).toLocaleDateString()} at {new Date(application.applied_at).toLocaleTimeString()}
+        </div>
+      </div>
 
-                            {/* Enhanced Status Badge */}
-                            <div className="ml-4 text-right">
-                              <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(application.status)} shadow-sm`}>
-                                {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
-                              </span>
-                            </div>
-                          </div>
+      {/* NEW: Cover Letter Section */}
+      {application.cover_letter && (
+        <div className="mt-4 p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200">
+          <p className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+            📝 Cover Letter
+          </p>
+          <div className="max-h-40 overflow-y-auto pr-2">
+            <p className="text-sm text-gray-600 whitespace-pre-line">
+              {application.cover_letter.length > 500 
+                ? application.cover_letter.substring(0, 500) + '...' 
+                : application.cover_letter}
+            </p>
+            {application.cover_letter.length > 500 && (
+              <button
+                onClick={() => {
+                  // You can add a modal to view full cover letter
+                  alert(application.cover_letter);
+                }}
+                className="text-sm text-amber-600 hover:text-amber-700 font-medium mt-2"
+              >
+                Read full cover letter →
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
-                          {/* Enhanced Status Update Buttons */}
-                          {nextStatusOptions.length > 0 && (
-                            <div className="border-t pt-4 mt-4">
-                              <p className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                                🎯 Update Status:
-                              </p>
-                              <div className="flex flex-wrap gap-3">
-                                {nextStatusOptions.map((status) => (
-                                  <button
-                                    key={status}
-                                    onClick={() => handleStatusUpdate(application.id, status)}
-                                    disabled={updatingStatus}
-                                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50 ${
-                                      status === 'viewed'
-                                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700'
-                                        : status === 'shortlisted'
-                                        ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700'
-                                        : status === 'accepted'
-                                        ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:from-emerald-600 hover:to-green-700'
-                                        : status === 'rejected'
-                                        ? 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'
-                                        : 'bg-gradient-to-r from-gray-500 to-gray-600 text-white hover:from-gray-600 hover:to-gray-700'
-                                    }`}
-                                  >
-                                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+      {/* Enhanced Resume Display */}
+      {application.resume_filename && (
+        <div className="mt-4 p-4 bg-gradient-to-r from-sky-50 to-blue-50 rounded-xl border border-sky-200">
+          <p className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+            📄 Resume Attached
+          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-sm text-gray-600 block">
+                {application.resume_filename}
+              </span>
+              {application.file_size && (
+                <span className="text-xs text-gray-500">
+                  ({(application.file_size / 1024 / 1024).toFixed(2)} MB)
+                </span>
+              )}
+            </div>
+            <a
+              href={`http://localhost:3001${application.resume_url}`}
+              download={application.resume_filename}
+              className="px-4 py-2 bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-lg text-sm font-semibold hover:from-sky-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              Download
+            </a>
+          </div>
+        </div>
+      )}
+    </div>
 
-                          {/* Enhanced Final Messages */}
-                          {(application.status === 'accepted' || application.status === 'rejected') && (
-                            <div className={`mt-4 p-4 rounded-xl border ${
-                              application.status === 'accepted' 
-                                ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200' 
-                                : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200'
-                            }`}>
-                              <p className={`text-sm font-semibold flex items-center ${
-                                application.status === 'accepted' ? 'text-emerald-800' : 'text-red-800'
-                              }`}>
-                                {application.status === 'accepted'
-                                  ? '🎉 Congratulations! This candidate has been accepted.'
-                                  : '❌ This application has been rejected.'}
-                              </p>
-                            </div>
-                          )}
-                        </div>
+    {/* Status Badge */}
+    <div className="ml-4 text-right">
+      <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(application.status)} shadow-sm`}>
+        {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
+      </span>
+    </div>
+  </div>
+
+  {/* Status Update Buttons (keep existing) */}
+  {nextStatusOptions.length > 0 && (
+    <div className="border-t pt-4 mt-4">
+      <p className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+        🎯 Update Status:
+      </p>
+      <div className="flex flex-wrap gap-3">
+        {nextStatusOptions.map((status) => (
+          <button
+            key={status}
+            onClick={() => handleStatusUpdate(application.id, status)}
+            disabled={updatingStatus}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50 ${
+              status === 'viewed'
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700'
+                : status === 'shortlisted'
+                ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700'
+                : status === 'accepted'
+                ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:from-emerald-600 hover:to-green-700'
+                : status === 'rejected'
+                ? 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'
+                : 'bg-gradient-to-r from-gray-500 to-gray-600 text-white hover:from-gray-600 hover:to-gray-700'
+            }`}
+          >
+            {status.charAt(0).toUpperCase() + status.slice(1)}
+          </button>
+        ))}
+      </div>
+    </div>
+  )}
+
+  {/* Final Messages (keep existing) */}
+  {(application.status === 'accepted' || application.status === 'rejected') && (
+    <div className={`mt-4 p-4 rounded-xl border ${
+      application.status === 'accepted' 
+        ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200' 
+        : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200'
+    }`}>
+      <p className={`text-sm font-semibold flex items-center ${
+        application.status === 'accepted' ? 'text-emerald-800' : 'text-red-800'
+      }`}>
+        {application.status === 'accepted'
+          ? '🎉 Congratulations! This candidate has been accepted.'
+          : '❌ This application has been rejected.'}
+      </p>
+    </div>
+  )}
+</div>
                       );
                     })}
                   </div>

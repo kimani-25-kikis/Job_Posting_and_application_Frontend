@@ -12,6 +12,7 @@ export interface Job {
   created_at: string;
   is_active: boolean;
   employer_name?: string;
+  job_type: string
 }
 
 interface CreateJobData {
@@ -20,6 +21,7 @@ interface CreateJobData {
   requirements: string;
   location: string;
   salary: string;
+  job_type: string
 }
 
 interface UpdateJobData {
